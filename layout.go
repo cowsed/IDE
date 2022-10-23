@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"log"
 
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/text"
@@ -14,7 +15,8 @@ import (
 type Widget interface {
 	Draw(target *ebiten.Image)
 	SetRect(rect image.Rectangle)
-
+	//Keyboard events get sent to the place that last received mouse input
+	TakeKeyboard(key ebiten.Key)
 	//Mouse events return a pointer(interfaces are just pointers) to the widget that actually used the input
 	//this is used to tell that widget when a mouse out happens
 	MouseOut()
@@ -45,6 +47,11 @@ type Tabs struct {
 	current_hovered int
 }
 
+// TakeKeyboard implements Widget
+func (t *Tabs) TakeKeyboard(key ebiten.Key) {
+	log.Println("TakeKeyboard unimplemented for tabs")
+}
+
 // MouseOut implements Widget
 func (t *Tabs) MouseOut() {
 	t.current_hovered = -1
@@ -69,7 +76,7 @@ func (t *Tabs) DrawTabs(target *ebiten.Image) {
 		}
 
 		ebitenutil.DrawRect(target, float64(my_r.Min.X), float64(my_r.Min.Y), float64(my_r.Dx()), float64(my_r.Dy()), my_c)
-		text.Draw(target, t.Titles[i], MainFontFace, my_r.Min.X+tab_x_padding, my_r.Max.Y-tab_y_padding-MainFontDescent/2, Style.FGColorStrong)
+		text.Draw(target, t.Titles[i], MainFontFace, my_r.Min.X+tab_x_padding, my_r.Max.Y-tab_y_padding-MainFontPeriodFromTop/2, Style.FGColorStrong)
 		if i == t.CurrentTab {
 			ebitenutil.DrawLine(target, float64(my_r.Min.X), float64(my_r.Max.Y-1), float64(my_r.Max.X), float64(my_r.Max.Y-1), Style.FGColorStrong)
 		}
@@ -167,6 +174,12 @@ type HorizontalSplitter struct {
 	border_half_width int
 	border_mode       BorderShowMode
 	border_hovered    bool
+}
+
+// TakeKeyboard implements Widget
+func (hz *HorizontalSplitter) TakeKeyboard(key ebiten.Key) {
+	log.Println("TakeKeyboard unimplemented for horizontal splitter")
+	//panic("unimplemented")
 }
 
 // MouseOut implements Widget
@@ -299,9 +312,19 @@ func (hz *HorizontalSplitter) SetRect(r image.Rectangle) {
 	}
 }
 
+func NewColorRect(col color.Color) *ColorRect {
+	return &ColorRect{color: col}
+}
+
 type ColorRect struct {
 	image.Rectangle
 	color color.Color
+}
+
+// TakeKeyboard implements Widget
+func (cr *ColorRect) TakeKeyboard(key ebiten.Key) {
+	log.Println("TakeKeyboard unimplemented for color rect")
+	//panic("unimplemented")
 }
 
 // MouseOut implements Widget

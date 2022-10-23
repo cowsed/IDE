@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image"
+	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -31,9 +32,20 @@ type MenuItem interface {
 	Shortcut() KeyShortcut
 	DrawOpen(target *ebiten.Image, topleft image.Point)
 	SpaceUsed(topleft image.Point) []image.Rectangle
+	MouseOver(x, y int)
 }
 
 var _ MenuItem = &DummyMenuItem{txt: "File"}
+
+func NewMenuItem(name string, children []MenuItem) *DummyMenuItem {
+	return &DummyMenuItem{
+		txt:               name,
+		currently_hovered: -1,
+		width:             0,
+		kids:              children,
+		ks:                KeyShortcut{},
+	}
+}
 
 type DummyMenuItem struct {
 	txt               string
@@ -44,6 +56,16 @@ type DummyMenuItem struct {
 	ks                KeyShortcut
 }
 
+func (dmi *DummyMenuItem) MouseOver(x, y int) {
+	for i, r := range dmi.itemrects {
+		if image.Pt(x, y).In(r) {
+			dmi.currently_hovered = i
+		}
+	}
+	if dmi.currently_hovered != -1 {
+		dmi.kids[dmi.currently_hovered].MouseOver(x, y)
+	}
+}
 func (dmi *DummyMenuItem) Shortcut() KeyShortcut {
 	return dmi.ks
 }
@@ -68,8 +90,11 @@ func (dmi *DummyMenuItem) SpaceUsed(topleft image.Point) []image.Rectangle {
 	}
 	biggest_width += menu_bar_x_padding * 2
 	dmi.width = biggest_width
+	box_h := MenuFontSize + menu_y_padding
+	ascent := MenuFontFace.Metrics().Ascent.Round()
+
 	for i, y := range text_rect_tops {
-		dmi.itemrects[i] = image.Rect(topleft.X, y, topleft.X+biggest_width, y+MenuFontSize+menu_y_padding)
+		dmi.itemrects[i] = image.Rect(topleft.X, y+menu_y_padding+ascent, topleft.X+biggest_width, y+box_h+menu_y_padding+ascent)
 	}
 
 	var child_rects = []image.Rectangle{}
@@ -91,21 +116,18 @@ func (dmi *DummyMenuItem) DrawOpen(target *ebiten.Image, topleft image.Point) {
 	start.X += menu_x_padding
 	start.Y += MenuFontFace.Metrics().Ascent.Round() + menu_y_padding
 	for i, mi := range dmi.kids {
-		text.Draw(target, mi.Text(), MenuFontFace, start.X, start.Y, Style.FGColorStrong)
 
 		if dmi.currently_hovered == i {
+			//draw this one brighter
+			DrawRect(target, dmi.itemrects[i], Style.RedMuted)
 			dmi.kids[dmi.currently_hovered].DrawOpen(target, image.Pt(start.X+dmi.width-menu_x_padding, start.Y-MenuFontFace.Metrics().Ascent.Round()-menu_y_padding))
 		}
+		text.Draw(target, mi.Text(), MenuFontFace, start.X, start.Y, Style.FGColorStrong)
+
 		start.Y += MenuFontSize + menu_y_padding
 
 	}
 
-}
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // Execute implements MenuItem
@@ -117,6 +139,14 @@ func (dmi *DummyMenuItem) Execute() {
 func (dmi *DummyMenuItem) Text() string {
 	return dmi.txt
 }
+func NewMenuBar(Items []MenuItem, SubWidget Widget) *MenuBar {
+	return &MenuBar{
+		currently_hovered: -1,
+		currently_open:    -1,
+		WidgetIApplyTo:    SubWidget,
+		TopLevelItems:     Items,
+	}
+}
 
 type MenuBar struct {
 	image.Rectangle
@@ -126,6 +156,12 @@ type MenuBar struct {
 	TopLevelItems     []MenuItem
 
 	WidgetIApplyTo Widget
+}
+
+// TakeKeyboard implements Widget
+func (mb *MenuBar) TakeKeyboard(key ebiten.Key) {
+	log.Println("TakeKeyboard unimplemented for menubar")
+	//panic("unimplemented")
 }
 
 // MouseOut implements Widget
@@ -146,8 +182,8 @@ func (mb *MenuBar) Draw(target *ebiten.Image) {
 		topleft_of_menu := BottomLeft(mb.TopLevelRects[mb.currently_open])
 		bg_rects := mb.TopLevelItems[mb.currently_open].SpaceUsed(topleft_of_menu)
 		for _, r := range bg_rects {
-			ebitenutil.DrawRect(target, float64(r.Min.X), float64(r.Min.Y), float64(r.Dx()), float64(r.Dy()), Style.BGColorStrong)
-			DrawBorders(target, r, Style.FGColorStrong)
+			ebitenutil.DrawRect(target, float64(r.Min.X), float64(r.Min.Y), float64(r.Dx()), float64(r.Dy()), Style.BGColorMuted)
+			DrawBorders(target, r, Style.FGColorMuted)
 
 		}
 
@@ -170,19 +206,6 @@ func (mb *MenuBar) Draw(target *ebiten.Image) {
 
 	}
 
-}
-
-func TopLeft(r image.Rectangle) image.Point {
-	return image.Pt(r.Min.X, r.Min.Y)
-}
-func TopRight(r image.Rectangle) image.Point {
-	return image.Pt(r.Max.X, r.Min.Y)
-}
-func BottomLeft(r image.Rectangle) image.Point {
-	return image.Pt(r.Min.X, r.Max.Y)
-}
-func BottomRight(r image.Rectangle) image.Point {
-	return image.Pt(r.Max.X, r.Max.Y)
 }
 
 // LMouseDown implements Widget
@@ -239,6 +262,8 @@ func (mb *MenuBar) MouseOver(x int, y int) Widget {
 	}
 	for i := range sub_menu_space {
 		if image.Pt(x, y).In(sub_menu_space[i]) {
+			mb.TopLevelItems[mb.currently_open].MouseOver(x, y)
+
 			return mb
 		}
 		//if we got here, mouse is out

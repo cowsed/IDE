@@ -6,6 +6,7 @@ import (
 	"image"
 	_ "image/png"
 	"log"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -39,6 +40,8 @@ func (g *Editor) Update() error {
 		g.MainWidget.LMouseUp(x, y)
 	}
 
+	//Keyboard
+	consumer.TakeKeyboard(ebiten.Key0)
 	return nil
 }
 
@@ -62,30 +65,40 @@ func (g *Editor) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return g.screenWidth, g.screenHeight
 }
 
+/*
+[]MenuItem{
+	&DummyMenuItem{txt: "File", kids: []MenuItem{&DummyMenuItem{txt: "Open"}, &DummyMenuItem{txt: "Close"}, &DummyMenuItem{txt: "Quit"}}},
+	&DummyMenuItem{txt: "Edit", kids: []MenuItem{&DummyMenuItem{txt: "Copy", kids: []MenuItem{&DummyMenuItem{txt: "Cut"}, &DummyMenuItem{txt: "Pasta"}}}}},
+	&DummyMenuItem{txt: "Code", kids: []MenuItem{}},
+},
+*/
+
 func main() {
-	g := &Editor{
-		MainWidget: &MenuBar{TopLevelItems: []MenuItem{
-			&DummyMenuItem{txt: "File", kids: []MenuItem{&DummyMenuItem{txt: "Open"}, &DummyMenuItem{txt: "Close"}, &DummyMenuItem{txt: "Quit"}}},
-			&DummyMenuItem{txt: "Edit", kids: []MenuItem{&DummyMenuItem{txt: "Copy", kids: []MenuItem{&DummyMenuItem{txt: "Cut"}, &DummyMenuItem{txt: "Pasta"}}}}},
-			&DummyMenuItem{txt: "Code", kids: []MenuItem{}}},
-			WidgetIApplyTo: &HorizontalSplitter{
-				split_x: 200,
-				Left:    &ColorRect{color: Style.RedMuted},
-				Right: &Tabs{
-					current_hovered: -1,
-					Titles:          []string{"Text editor", "Blue", "Green", "Red"},
-					Tabs: []Widget{
-						&TextEditor{},
-						&ColorRect{color: Style.BGColorMuted},
-						&ColorRect{color: Style.GreenStrong},
-						&ColorRect{color: Style.RedStrong},
-					},
-					CurrentTab: 1,
-					TabHeight:  2*tab_y_padding + MainFontSize,
-				},
-				border_half_width: 2,
-				border_mode:       ShowOnHover},
+	menu_items := []MenuItem{
+		NewMenuItem("File", []MenuItem{NewMenuItem("Open", nil), NewMenuItem("Close", nil), NewMenuItem("Quit", nil)}),
+		NewMenuItem("Edit", []MenuItem{NewMenuItem("Copy", nil), NewMenuItem("Cut", nil), NewMenuItem("Pasta", nil)}),
+		NewMenuItem("Code", []MenuItem{NewMenuItem("Go To", []MenuItem{NewMenuItem("Symbol Definition", nil)})}),
+	}
+	main_view := &HorizontalSplitter{
+		split_x: 200,
+		Left:    NewColorRect(Style.RedMuted),
+		Right: &Tabs{
+			current_hovered: -1,
+			Titles:          []string{"Text editor", "Blue", "Green", "Red"},
+			Tabs: []Widget{
+				&TextEditor{text: strings.Split("wow", "\n")},
+				NewColorRect(Style.BGColorMuted),
+				NewColorRect(Style.GreenStrong),
+				NewColorRect(Style.RedStrong),
+			},
+			CurrentTab: 0,
+			TabHeight:  2*tab_y_padding + MainFontSize,
 		},
+		border_half_width: 2,
+		border_mode:       ShowOnHover,
+	}
+	g := &Editor{
+		MainWidget: NewMenuBar(menu_items, main_view),
 	}
 
 	//

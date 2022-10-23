@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"io"
 	"os"
@@ -9,11 +10,6 @@ import (
 	"golang.org/x/image/font"
 )
 
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
 func init() {
 	f, err := os.Open("Fonts/CascadiaCode-2111.01/ttf/CascadiaCode.ttf")
 	check(err)
@@ -32,7 +28,7 @@ func init() {
 		SubPixelsY:        0,
 	}
 	MainFontFace = truetype.NewFace(MainFont, &MainFontOpts)
-	MainFontDescent = MainFontFace.Metrics().Descent.Round()
+	MainFontPeriodFromTop = MainFontFace.Metrics().Height.Round() - MainFontFace.Metrics().Descent.Round()
 
 	//menu bar font
 	f2, err := os.Open("Fonts/CascadiaCode-2111.01/ttf/CascadiaCode.ttf")
@@ -53,14 +49,40 @@ func init() {
 	}
 	MenuFontFace = truetype.NewFace(MenuFont, &MenuFontOpts)
 	MenuFontDescent = MenuFontFace.Metrics().Descent.Round()
+
+	//Code font
+	f3, err := os.Open("Fonts/CascadiaCode-2111.01/ttf/CascadiaMonoPL.ttf")
+	check(err)
+	defer f3.Close()
+	font_bytes3, err := io.ReadAll(f3)
+	check(err)
+
+	CodeFont, err = truetype.Parse(font_bytes3)
+	check(err)
+	CodeFontOpts := truetype.Options{
+		Size:              float64(CodeFontSize),
+		DPI:               0,
+		Hinting:           0,
+		GlyphCacheEntries: 0,
+		SubPixelsX:        0,
+		SubPixelsY:        0,
+	}
+	CodeFontFace = truetype.NewFace(CodeFont, &CodeFontOpts)
+	CodeFontDescent = CodeFontFace.Metrics().Height.Round() - CodeFontFace.Metrics().Descent.Round()
+	fmt.Printf("metrics %+v\n", CodeFontFace.Metrics())
 }
 
 var MainFontSize int = 18
 var MainFont *truetype.Font
 var MainFontFace font.Face
-var MainFontDescent int
+var MainFontPeriodFromTop int
 
-var MenuFontSize int = 12
+var CodeFontSize int = 14
+var CodeFont *truetype.Font
+var CodeFontFace font.Face
+var CodeFontDescent int
+
+var MenuFontSize int = 14
 var MenuFont *truetype.Font
 var MenuFontFace font.Face
 var MenuFontDescent int
@@ -85,7 +107,7 @@ var Style = StyleColors{
 	BGColorStrong: ParseHexColor("#1D2019"),
 	FGColorStrong: ParseHexColor("#FBF1C7"),
 	BGColorMuted:  ParseHexColor("#32302F"),
-	FGColorMuted:  ParseHexColor("#FBF1C7"),
+	FGColorMuted:  ParseHexColor("#BDAE93"),
 	RedStrong:     ParseHexColor("#FB4934"),
 	RedMuted:      ParseHexColor("#CC241D"),
 	GreenStrong:   ParseHexColor("#B8BB26"),
@@ -129,37 +151,4 @@ type StyleColors struct {
 
 	OrangeStrong color.Color
 	OrangeMuted  color.Color
-}
-
-// https://stackoverflow.com/questions/54197913/parse-hex-string-to-image-color
-func ParseHexColor(s string) (c color.RGBA) {
-	c.A = 0xff
-
-	if s[0] != '#' {
-		return color.RGBA{0, 0, 0, 0}
-	}
-
-	hexToByte := func(b byte) byte {
-		switch {
-		case b >= '0' && b <= '9':
-			return b - '0'
-		case b >= 'a' && b <= 'f':
-			return b - 'a' + 10
-		case b >= 'A' && b <= 'F':
-			return b - 'A' + 10
-		}
-		return 0
-	}
-
-	switch len(s) {
-	case 7:
-		c.R = hexToByte(s[1])<<4 + hexToByte(s[2])
-		c.G = hexToByte(s[3])<<4 + hexToByte(s[4])
-		c.B = hexToByte(s[5])<<4 + hexToByte(s[6])
-	case 4:
-		c.R = hexToByte(s[1]) * 17
-		c.G = hexToByte(s[2]) * 17
-		c.B = hexToByte(s[3]) * 17
-	}
-	return
 }
