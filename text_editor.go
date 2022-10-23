@@ -10,7 +10,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text"
-	"golang.org/x/image/colornames"
 )
 
 var _ Widget = &TextEditor{}
@@ -43,6 +42,7 @@ func (te *TextEditor) Draw(target *ebiten.Image) {
 	if te.ReadOnly {
 		return
 	}
+	te.DrawCursor(target)
 	//Draw "shadow" from the top
 	y := te.Rectangle.Min.Y
 	for i := 1; i < 10; i++ {
@@ -54,6 +54,25 @@ func (te *TextEditor) Draw(target *ebiten.Image) {
 	}
 
 }
+func (te *TextEditor) DrawCursor(target *ebiten.Image) {
+	y := te.cursor.row * CodeFontSize
+	start := te.Min
+	width := text.BoundString(CodeFontFace, te.text[te.cursor.row][:te.cursor.col]).Dx()
+
+	num_trailing_spaces := 0
+	for i := len(te.text[te.cursor.row][:te.cursor.col]) - 1; i >= 0; i-- {
+		if te.text[te.cursor.row][:te.cursor.col][i:i+1] == " " {
+			num_trailing_spaces++
+		} else {
+			break
+		}
+	}
+	space_width, _ := CodeFontFace.GlyphAdvance(' ')
+	width += num_trailing_spaces * space_width.Round()
+	move_over := 3
+	width += move_over
+	ebitenutil.DrawLine(target, float64(start.X+width), float64(start.Y+y), float64(start.X+width), float64(start.Y+y+CodeFontSize), Style.FGColorMuted)
+}
 
 func (te *TextEditor) DrawTextTexture() {
 
@@ -64,7 +83,7 @@ func (te *TextEditor) DrawTextTexture() {
 		te.text_tex = ebiten.NewImage(te.Dx(), te.Dy())
 	}
 	te.text_tex.Fill(color.RGBA{})
-	text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, CodeFontPeriodFromTop, colornames.Navajowhite)
+	text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, CodeFontPeriodFromTop, Style.FGColorMuted)
 
 }
 func (te *TextEditor) MarkRedraw() {
@@ -113,6 +132,54 @@ func (te *TextEditor) Backspace() {
 	te.cursor.col--
 	te.MarkRedraw()
 }
+func (te *TextEditor) CursorLeft() {
+	if te.cursor.col == 0 && te.cursor.row == 0 {
+		return
+	}
+	if te.cursor.col == 0 {
+		prev_line_end := len(te.text[te.cursor.row-1])
+		te.cursor.row--
+		te.cursor.col = prev_line_end
+		return
+	}
+	te.cursor.col--
+}
+func (te *TextEditor) CursorRight() {
+	//if at the end of a line
+	if te.cursor.col > len(te.text[te.cursor.row])-1 {
+		//if at the end of the file, cant go to the next line
+		if te.cursor.row >= len(te.text)-1 {
+			return
+		}
+		te.cursor.row++
+		te.cursor.col = 0
+		return
+	}
+	//just go right
+	if te.cursor.col < len(te.text[te.cursor.row]) {
+		te.cursor.col++
+	}
+
+}
+func (te *TextEditor) CursorDown() {
+	//already at the bottom of the file
+	if te.cursor.row >= len(te.text)-1 {
+		te.cursor.col = len(te.text[te.cursor.row])
+		return
+	}
+	te.cursor.row++
+	te.cursor.col = min(te.cursor.col, len(te.text[te.cursor.row]))
+
+}
+func (te *TextEditor) CursorUp() {
+	//already at the top of the file
+	if te.cursor.row <= 0 {
+		te.cursor.col = 0
+		return
+	}
+	te.cursor.row--
+	te.cursor.col = min(te.cursor.col, len(te.text[te.cursor.row]))
+}
 func (te *TextEditor) Newline() {
 	//te.text[te.cursor.row:] = append("", te.text[te.cursor.row:])
 	//te.text = append(append(te.text[0:te.cursor.row], ""), te.text[te.cursor.row:]...)
@@ -133,19 +200,40 @@ func (te *TextEditor) Newline() {
 func (te *TextEditor) SetText(s string) {
 	te.text = strings.Split(s, "\n")
 }
+func KeyJustPressedOrKeyRepeated(key ebiten.Key) bool {
+	delay_before_repeat := 20
+	repeat_frequency := 3
+	if ebiten.IsKeyPressed(key) && inpututil.KeyPressDuration(key) > delay_before_repeat && inpututil.KeyPressDuration(key)%repeat_frequency == 0 {
+		return true
+	}
+	if inpututil.IsKeyJustPressed(key) {
+		return true
+	}
+	return false
+}
 func (te *TextEditor) TakeKeyboard() {
 	if te.ReadOnly {
 		return
 	}
 
-	if ebiten.IsKeyPressed(ebiten.KeyBackspace) && inpututil.KeyPressDuration(ebiten.KeyBackspace) > 20 && inpututil.KeyPressDuration(ebiten.KeyBackspace)%3 == 0 {
+	if KeyJustPressedOrKeyRepeated(ebiten.KeyBackspace) {
 		te.Backspace()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		te.Backspace()
+	if KeyJustPressedOrKeyRepeated(ebiten.KeyLeft) {
+		te.CursorLeft()
+	}
+	if KeyJustPressedOrKeyRepeated(ebiten.KeyRight) {
+		te.CursorRight()
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+	if KeyJustPressedOrKeyRepeated(ebiten.KeyUp) {
+		te.CursorUp()
+	}
+	if KeyJustPressedOrKeyRepeated(ebiten.KeyDown) {
+		te.CursorDown()
+	}
+
+	if KeyJustPressedOrKeyRepeated(ebiten.KeyEnter) {
 		te.Newline()
 	}
 
