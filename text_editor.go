@@ -124,8 +124,8 @@ func (te *TextEditor) Backspace() {
 	line := te.text[te.cursor.row]
 	before := line[:te.cursor.col-1]
 	after := ""
-	if te.cursor.col+1 < len(line) {
-		after = line[te.cursor.col+1:]
+	if te.cursor.col < len(line) {
+		after = line[te.cursor.col:]
 	}
 	line = before + after
 	te.text[te.cursor.row] = line
