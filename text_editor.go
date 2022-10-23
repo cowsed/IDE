@@ -81,6 +81,10 @@ func (te *TextEditor) Backspace() {
 		return
 	}
 	if te.cursor.col == 0 {
+		var prev_line_len = 0
+		if te.cursor.row >= 1 {
+			prev_line_len = len(te.text[te.cursor.row-1])
+		}
 		//combine this line with previous
 		this_line := te.text[te.cursor.row]
 		up_to := te.text[0:te.cursor.row]
@@ -91,7 +95,22 @@ func (te *TextEditor) Backspace() {
 		te.text = append(up_to, after...)
 		te.text[te.cursor.row-1] += this_line
 		te.cursor.row--
+		te.cursor.col = prev_line_len
+		te.MarkRedraw()
+		return
 	}
+	//just change this line
+	//make sure we're not out in left field
+	te.cursor.col = min(len(te.text[te.cursor.row]), te.cursor.col)
+	line := te.text[te.cursor.row]
+	before := line[:te.cursor.col-1]
+	after := ""
+	if te.cursor.col+1 < len(line) {
+		after = line[te.cursor.col+1:]
+	}
+	line = before + after
+	te.text[te.cursor.row] = line
+	te.cursor.col--
 	te.MarkRedraw()
 }
 func (te *TextEditor) Newline() {
@@ -119,6 +138,9 @@ func (te *TextEditor) TakeKeyboard() {
 		return
 	}
 
+	if ebiten.IsKeyPressed(ebiten.KeyBackspace) && inpututil.KeyPressDuration(ebiten.KeyBackspace) > 20 && inpututil.KeyPressDuration(ebiten.KeyBackspace)%3 == 0 {
+		te.Backspace()
+	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 		te.Backspace()
 	}

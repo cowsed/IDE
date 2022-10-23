@@ -203,7 +203,7 @@ func (mb *MenuBar) Draw(target *ebiten.Image) {
 		}
 		ebitenutil.DrawRect(target, float64(my_r.Min.X), float64(my_r.Min.Y), float64(my_r.Dx()), float64(my_r.Dy()), my_c)
 
-		text.Draw(target, mb.TopLevelItems[i].Text(), MenuFontFace, my_r.Min.X+menu_bar_x_padding, my_r.Max.Y-menu_bar_y_padding-MenuFontPeriodFromTop/2, Style.FGColorStrong)
+		text.Draw(target, mb.TopLevelItems[i].Text(), MenuFontFace, my_r.Min.X+menu_bar_x_padding, my_r.Min.Y+MenuFontPeriodFromTop+menu_bar_y_padding, Style.FGColorStrong)
 
 		if i == mb.currently_open {
 			mb.TopLevelItems[i].DrawOpen(target, BottomLeft(my_r))

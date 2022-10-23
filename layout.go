@@ -283,12 +283,9 @@ func (hz *HorizontalSplitter) Draw(target *ebiten.Image) {
 
 }
 func (hz *HorizontalSplitter) SetRect(r image.Rectangle) {
-	fmt.Println("recalc hz")
-
 	old_width := hz.Rectangle.Dx()
 	hz.Rectangle = r
 	if old_width == 0 {
-		fmt.Println("skupping recalc")
 		return
 	}
 	x_percent := float64(hz.split_x) / float64(old_width)
