@@ -278,7 +278,7 @@ func (hz *HorizontalSplitter) Draw(target *ebiten.Image) {
 
 	if hz.border_mode == ShowAlways || hz.border_hovered || hz.dragging {
 		border_min_x := hz.Rectangle.Min.X + hz.split_x - hz.border_half_width
-		ebitenutil.DrawRect(target, float64(border_min_x), float64(hz.Rectangle.Min.Y), float64(hz.border_half_width)*2, float64(hz.Rectangle.Dy()), Style.FGColorStrong)
+		ebitenutil.DrawRect(target, float64(border_min_x), float64(hz.Rectangle.Min.Y), float64(hz.border_half_width)*2, float64(hz.Rectangle.Dy()), Style.FGColorMuted)
 	}
 
 }
