@@ -18,9 +18,9 @@ var _ Widget = &TextEditor{}
 type Cursor struct {
 	row, col int
 }
-
 type TextEditor struct {
 	image.Rectangle
+	ReadOnly bool
 	text     []string
 	text_tex *ebiten.Image
 	cursor   Cursor
@@ -40,15 +40,17 @@ func (te *TextEditor) Draw(target *ebiten.Image) {
 		CompositeMode: 0,
 		Filter:        0,
 	})
-
+	if te.ReadOnly {
+		return
+	}
 	//Draw "shadow" from the top
+	y := te.Rectangle.Min.Y
 	for i := 1; i < 10; i++ {
-		bounds := te.Rectangle.Inset(i)
+		y++
 		col := color.RGBA{
 			A: 70 - uint8(i*5),
 		}
-		tl, tr := TopLeft(bounds), TopRight(bounds)
-		ebitenutil.DrawLine(target, float64(tl.X), float64(tl.Y), float64(tr.X), float64(tr.Y), col)
+		ebitenutil.DrawLine(target, float64(te.Min.X), float64(y), float64(te.Max.X), float64(y), col)
 	}
 
 }
@@ -57,12 +59,12 @@ func (te *TextEditor) DrawTextTexture() {
 
 	needed_dims := text.BoundString(CodeFontFace, strings.Join(te.text, "\n"))
 	needed_dims.Max.Y += 11
-	if te.text_tex == nil || needed_dims != te.Bounds() {
-		te.text_tex = ebiten.NewImage(needed_dims.Dx(), needed_dims.Dy())
-
+	needed_dims.Max.X = max(needed_dims.Max.X, 1)
+	if te.text_tex == nil {
+		te.text_tex = ebiten.NewImage(te.Dx(), te.Dy())
 	}
-
-	text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, 11, colornames.Navajowhite)
+	te.text_tex.Fill(color.RGBA{})
+	text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, CodeFontPeriodFromTop, colornames.Navajowhite)
 
 }
 func (te *TextEditor) MarkRedraw() {
@@ -70,6 +72,7 @@ func (te *TextEditor) MarkRedraw() {
 }
 func (te *TextEditor) EnterText(s string) {
 	te.text[te.cursor.row] += s
+	te.cursor.col += len(s)
 	te.MarkRedraw()
 }
 
@@ -77,7 +80,18 @@ func (te *TextEditor) Backspace() {
 	if te.cursor.col == 0 && te.cursor.row == 0 {
 		return
 	}
-
+	if te.cursor.col == 0 {
+		//combine this line with previous
+		this_line := te.text[te.cursor.row]
+		up_to := te.text[0:te.cursor.row]
+		after := []string{}
+		if te.cursor.row+1 < len(te.text) {
+			after = te.text[te.cursor.row+1:]
+		}
+		te.text = append(up_to, after...)
+		te.text[te.cursor.row-1] += this_line
+		te.cursor.row--
+	}
 	te.MarkRedraw()
 }
 func (te *TextEditor) Newline() {
@@ -95,8 +109,15 @@ func (te *TextEditor) Newline() {
 	}
 	te.text = newtext
 	te.cursor.row++
+	te.cursor.col = 0
+}
+func (te *TextEditor) SetText(s string) {
+	te.text = strings.Split(s, "\n")
 }
 func (te *TextEditor) TakeKeyboard(key ebiten.Key) {
+	if te.ReadOnly {
+		return
+	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 		te.Backspace()

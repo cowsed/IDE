@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	f, err := os.Open("Fonts/CascadiaCode-2111.01/ttf/CascadiaCode.ttf")
+	f, err := os.Open("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
 	check(err)
 	defer f.Close()
 	font_bytes, err := io.ReadAll(f)
@@ -31,7 +31,7 @@ func init() {
 	MainFontPeriodFromTop = MainFontFace.Metrics().Height.Round() - MainFontFace.Metrics().Descent.Round()
 
 	//menu bar font
-	f2, err := os.Open("Fonts/CascadiaCode-2111.01/ttf/CascadiaCode.ttf")
+	f2, err := os.Open("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
 	check(err)
 	defer f2.Close()
 	font_bytes2, err := io.ReadAll(f2)
@@ -51,7 +51,7 @@ func init() {
 	MenuFontDescent = MenuFontFace.Metrics().Descent.Round()
 
 	//Code font
-	f3, err := os.Open("Fonts/CascadiaCode-2111.01/ttf/CascadiaMonoPL.ttf")
+	f3, err := os.Open("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
 	check(err)
 	defer f3.Close()
 	font_bytes3, err := io.ReadAll(f3)
@@ -68,19 +68,19 @@ func init() {
 		SubPixelsY:        0,
 	}
 	CodeFontFace = truetype.NewFace(CodeFont, &CodeFontOpts)
-	CodeFontDescent = CodeFontFace.Metrics().Height.Round() - CodeFontFace.Metrics().Descent.Round()
+	CodeFontPeriodFromTop = CodeFontFace.Metrics().Height.Round() - CodeFontFace.Metrics().Descent.Round()
 	fmt.Printf("metrics %+v\n", CodeFontFace.Metrics())
 }
 
-var MainFontSize int = 18
+var MainFontSize int = 20
 var MainFont *truetype.Font
 var MainFontFace font.Face
 var MainFontPeriodFromTop int
 
-var CodeFontSize int = 14
+var CodeFontSize int = 20
 var CodeFont *truetype.Font
 var CodeFontFace font.Face
-var CodeFontDescent int
+var CodeFontPeriodFromTop int
 
 var MenuFontSize int = 14
 var MenuFont *truetype.Font
@@ -88,7 +88,7 @@ var MenuFontFace font.Face
 var MenuFontDescent int
 
 var tab_x_padding int = 13
-var tab_y_padding int = 4
+var tab_y_padding int = 8
 
 var menu_bar_x_padding int = 8
 var menu_bar_y_padding int = 4

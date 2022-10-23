@@ -76,7 +76,7 @@ func (t *Tabs) DrawTabs(target *ebiten.Image) {
 		}
 
 		ebitenutil.DrawRect(target, float64(my_r.Min.X), float64(my_r.Min.Y), float64(my_r.Dx()), float64(my_r.Dy()), my_c)
-		text.Draw(target, t.Titles[i], MainFontFace, my_r.Min.X+tab_x_padding, my_r.Max.Y-tab_y_padding-MainFontPeriodFromTop/2, Style.FGColorStrong)
+		text.Draw(target, t.Titles[i], MainFontFace, my_r.Min.X+tab_x_padding, my_r.Min.Y+MainFontPeriodFromTop+tab_y_padding, Style.FGColorStrong)
 		if i == t.CurrentTab {
 			ebitenutil.DrawLine(target, float64(my_r.Min.X), float64(my_r.Max.Y-1), float64(my_r.Max.X), float64(my_r.Max.Y-1), Style.FGColorStrong)
 		}

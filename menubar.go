@@ -119,7 +119,7 @@ func (dmi *DummyMenuItem) DrawOpen(target *ebiten.Image, topleft image.Point) {
 
 		if dmi.currently_hovered == i {
 			//draw this one brighter
-			DrawRect(target, dmi.itemrects[i], Style.RedMuted)
+			DrawRect(target, dmi.itemrects[i].Inset(1), Style.BGColorStrong)
 			dmi.kids[dmi.currently_hovered].DrawOpen(target, image.Pt(start.X+dmi.width-menu_x_padding, start.Y-MenuFontFace.Metrics().Ascent.Round()-menu_y_padding))
 		}
 		text.Draw(target, mi.Text(), MenuFontFace, start.X, start.Y, Style.FGColorStrong)

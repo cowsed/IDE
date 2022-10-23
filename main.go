@@ -6,7 +6,10 @@ import (
 	"image"
 	_ "image/png"
 	"log"
+	"os"
+	"runtime/pprof"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -48,7 +51,6 @@ func (g *Editor) Update() error {
 func (g *Editor) Draw(screen *ebiten.Image) {
 	ebitenutil.DrawRect(screen, 0, 0, float64(screen.Bounds().Dx()), float64(screen.Bounds().Dy()), Style.BGColorMuted)
 	g.MainWidget.Draw(screen)
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("TPS: %f\nFPS: %f", ebiten.ActualTPS(), ebiten.ActualFPS()), 12, 222)
 
 }
 
@@ -74,22 +76,32 @@ func (g *Editor) Layout(outsideWidth, outsideHeight int) (int, int) {
 */
 
 func main() {
+
 	menu_items := []MenuItem{
-		NewMenuItem("File", []MenuItem{NewMenuItem("Open", nil), NewMenuItem("Close", nil), NewMenuItem("Quit", nil)}),
+		NewMenuItem("File", []MenuItem{NewMenuItem("Save", nil), NewMenuItem("Save as", nil), NewMenuItem("Open", nil), NewMenuItem("Close", nil), NewMenuItem("Quit", nil)}),
 		NewMenuItem("Edit", []MenuItem{NewMenuItem("Copy", nil), NewMenuItem("Cut", nil), NewMenuItem("Pasta", nil)}),
 		NewMenuItem("Code", []MenuItem{NewMenuItem("Go To", []MenuItem{NewMenuItem("Symbol Definition", nil)})}),
 	}
+	data_pane := &TextEditor{
+		ReadOnly: true,
+	}
+	ticker := time.NewTicker(time.Second / 60)
+	go func() {
+		for t := range ticker.C {
+			data_pane.SetText(fmt.Sprintf("time: %v\nTPS: %f\nFPS: %f", t.Format(time.Kitchen), ebiten.ActualTPS(), ebiten.ActualFPS()))
+		}
+	}()
 	main_view := &HorizontalSplitter{
 		split_x: 200,
-		Left:    NewColorRect(Style.RedMuted),
+		Left:    data_pane,
 		Right: &Tabs{
 			current_hovered: -1,
 			Titles:          []string{"Text editor", "Blue", "Green", "Red"},
 			Tabs: []Widget{
-				&TextEditor{text: strings.Split("wow", "\n")},
-				NewColorRect(Style.BGColorMuted),
-				NewColorRect(Style.GreenStrong),
-				NewColorRect(Style.RedStrong),
+				&TextEditor{text: strings.Split("", "\n")},
+				NewColorRect(Style.BlueMuted),
+				NewColorRect(Style.GreenMuted),
+				NewColorRect(Style.RedMuted),
 			},
 			CurrentTab: 0,
 			TabHeight:  2*tab_y_padding + MainFontSize,
@@ -102,7 +114,7 @@ func main() {
 	}
 
 	//
-	ebiten.SetFPSMode(ebiten.FPSModeVsyncOffMaximum)
+	//ebiten.SetFPSMode(ebiten.FPSModeVsyncOffMaximum)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	g.MainWidget.SetRect(image.Rect(0, 0, 800, 700))
@@ -111,6 +123,11 @@ func main() {
 
 	ebiten.SetWindowTitle("IDE")
 	if err := ebiten.RunGame(g); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
+	f, err := os.Create("mem.pprof")
+	check(err)
+	defer f.Close()
+	pprof.Lookup("allocs").WriteTo(f, 0)
+
 }
