@@ -8,22 +8,13 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
-func text_stats(lines []string) (int, int) {
-	//returns largest line (x) and num lines (y)
-	max_width := 0
-
-	for _, line := range lines {
-		max_width = max(max_width, len(line))
-	}
-	return len(lines), max_width
-}
-
 func max(a, b int) int {
 	if a > b {
 		return a
 	}
 	return b
 }
+
 func min(a, b int) int {
 	if a < b {
 		return a

@@ -16,7 +16,7 @@ type Widget interface {
 	Draw(target *ebiten.Image)
 	SetRect(rect image.Rectangle)
 	//Keyboard events get sent to the place that last received mouse input
-	TakeKeyboard(key ebiten.Key)
+	TakeKeyboard()
 	//Mouse events return a pointer(interfaces are just pointers) to the widget that actually used the input
 	//this is used to tell that widget when a mouse out happens
 	MouseOut()
@@ -48,7 +48,7 @@ type Tabs struct {
 }
 
 // TakeKeyboard implements Widget
-func (t *Tabs) TakeKeyboard(key ebiten.Key) {
+func (t *Tabs) TakeKeyboard() {
 	log.Println("TakeKeyboard unimplemented for tabs")
 }
 
@@ -177,7 +177,7 @@ type HorizontalSplitter struct {
 }
 
 // TakeKeyboard implements Widget
-func (hz *HorizontalSplitter) TakeKeyboard(key ebiten.Key) {
+func (hz *HorizontalSplitter) TakeKeyboard() {
 	log.Println("TakeKeyboard unimplemented for horizontal splitter")
 	//panic("unimplemented")
 }
@@ -322,7 +322,7 @@ type ColorRect struct {
 }
 
 // TakeKeyboard implements Widget
-func (cr *ColorRect) TakeKeyboard(key ebiten.Key) {
+func (cr *ColorRect) TakeKeyboard() {
 	log.Println("TakeKeyboard unimplemented for color rect")
 	//panic("unimplemented")
 }

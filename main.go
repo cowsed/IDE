@@ -20,14 +20,27 @@ type Editor struct {
 	screenWidth  int
 	screenHeight int
 
+	should_close bool
+
 	MainWidget          Widget
 	last_mouse_consumer Widget
 }
 
+func ToggleFullscreen() {
+	ebiten.SetFullscreen(!ebiten.IsFullscreen())
+}
+func (g *Editor) SetShouldClose() {
+	g.should_close = true
+}
 func (g *Editor) Update() error {
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+	if g.should_close {
 		return errors.New("game ended by player")
 	}
+	if !ebiten.IsFocused() {
+		return nil
+	}
+
+	//mouse handling
 	x, y := ebiten.CursorPosition()
 	consumer := g.MainWidget.MouseOver(x, y)
 	if consumer != g.last_mouse_consumer {
@@ -43,8 +56,50 @@ func (g *Editor) Update() error {
 		g.MainWidget.LMouseUp(x, y)
 	}
 
-	//Keyboard
-	consumer.TakeKeyboard(ebiten.Key0)
+	global_shortcuts := map[KeyShortcut]func(){
+		{
+			mod_shift: false,
+			mod_ctrl:  false,
+			mod_alt:   false,
+			mod_meta:  false,
+			key:       ebiten.KeyF11,
+		}: ToggleFullscreen,
+		{
+			mod_shift: false,
+			mod_ctrl:  true,
+			mod_alt:   false,
+			mod_meta:  false,
+			key:       ebiten.KeyQ,
+		}: g.SetShouldClose,
+	}
+	//special function keys
+	ctrl_down := ebiten.IsKeyPressed(ebiten.KeyControl)
+	alt_down := ebiten.IsKeyPressed(ebiten.KeyAlt)
+	meta_down := ebiten.IsKeyPressed(ebiten.KeyMeta)
+	shift_down := ebiten.IsKeyPressed(ebiten.KeyShift)
+
+	for shortcut := range global_shortcuts {
+		switch shortcut.key {
+		case ebiten.KeyControl, ebiten.KeyShift, ebiten.KeyAlt, ebiten.KeyMeta:
+			continue
+		default:
+			if inpututil.IsKeyJustReleased(shortcut.key) {
+				executable := global_shortcuts[KeyShortcut{
+					mod_shift: shift_down,
+					mod_ctrl:  ctrl_down,
+					mod_alt:   alt_down,
+					mod_meta:  meta_down,
+					key:       shortcut.key,
+				}]
+				if executable != nil {
+					executable()
+				}
+			}
+		}
+	}
+
+	//Keyboard handling
+	consumer.TakeKeyboard()
 	return nil
 }
 
@@ -88,7 +143,7 @@ func main() {
 	ticker := time.NewTicker(time.Second / 60)
 	go func() {
 		for t := range ticker.C {
-			data_pane.SetText(fmt.Sprintf("time: %v\nTPS: %f\nFPS: %f", t.Format(time.Kitchen), ebiten.ActualTPS(), ebiten.ActualFPS()))
+			data_pane.SetText(fmt.Sprintf("\nData:\ntime: %v\nTPS: %f\nFPS: %f", t.Format(time.Kitchen), ebiten.ActualTPS(), ebiten.ActualFPS()))
 		}
 	}()
 	main_view := &HorizontalSplitter{

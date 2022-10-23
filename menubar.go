@@ -11,15 +11,20 @@ import (
 )
 
 type KeyShortcut struct {
-	mods []ebiten.Key
-	key  ebiten.Key
+	mod_shift, mod_ctrl, mod_alt, mod_meta bool
+	key                                    ebiten.Key
 }
 
 func (ks *KeyShortcut) String() string {
 	s := ""
-	for i := range ks.mods {
-		s += ks.mods[i].String()
-		s += " + "
+	if ks.mod_ctrl {
+		s += "ctrl + "
+	}
+	if ks.mod_alt {
+		s += "alt + "
+	}
+	if ks.mod_shift {
+		s += "shift + "
 	}
 	s += ks.key.String()
 	return s
@@ -78,28 +83,30 @@ func (dmi *DummyMenuItem) SpaceUsed(topleft image.Point) []image.Rectangle {
 	if len(dmi.kids) == 0 {
 		return []image.Rectangle{}
 	}
-	biggest_width := 0
-	height_needed := menu_y_padding
+	//Build space used by me (and calculate the boxes used for hovering)
 	text_rect_tops := make([]int, len(dmi.kids))
 	dmi.itemrects = make([]image.Rectangle, len(dmi.kids))
+
+	biggest_width := 0
+	height_needed := 0
+
 	for i := range dmi.kids {
 		text_rect_tops[i] = height_needed
 		text_r := text.BoundString(MenuFontFace, dmi.kids[i].Text())
 		biggest_width = max(biggest_width, text_r.Dx())
-		height_needed += text_r.Dy() + menu_y_padding
+		height_needed += text_r.Dy() + menu_y_padding*2
 	}
 	biggest_width += menu_bar_x_padding * 2
 	dmi.width = biggest_width
-	box_h := MenuFontSize + menu_y_padding
-	ascent := MenuFontFace.Metrics().Ascent.Round()
+	box_h := MenuFontSize + menu_y_padding*2
 
 	for i, y := range text_rect_tops {
-		dmi.itemrects[i] = image.Rect(topleft.X, y+menu_y_padding+ascent, topleft.X+biggest_width, y+box_h+menu_y_padding+ascent)
+		dmi.itemrects[i] = image.Rect(topleft.X, y+topleft.Y, topleft.X+biggest_width, y+box_h+topleft.Y)
 	}
 
+	//collect space used by open children
 	var child_rects = []image.Rectangle{}
 	if dmi.currently_hovered >= 0 && dmi.currently_hovered < len(dmi.kids) && dmi.kids[dmi.currently_hovered] != nil {
-		//collect space used by open children
 		child_rects = dmi.kids[dmi.currently_hovered].SpaceUsed(image.Pt(biggest_width-1, dmi.currently_hovered*(MenuFontSize+menu_y_padding)).Add(topleft))
 	}
 	my_space := append(child_rects, image.Rect(topleft.X, topleft.Y, topleft.X+biggest_width, topleft.Y+height_needed))
@@ -113,18 +120,16 @@ func (dmi *DummyMenuItem) DrawOpen(target *ebiten.Image, topleft image.Point) {
 	}
 
 	start := topleft
-	start.X += menu_x_padding
-	start.Y += MenuFontFace.Metrics().Ascent.Round() + menu_y_padding
 	for i, mi := range dmi.kids {
 
 		if dmi.currently_hovered == i {
 			//draw this one brighter
 			DrawRect(target, dmi.itemrects[i].Inset(1), Style.BGColorStrong)
-			dmi.kids[dmi.currently_hovered].DrawOpen(target, image.Pt(start.X+dmi.width-menu_x_padding, start.Y-MenuFontFace.Metrics().Ascent.Round()-menu_y_padding))
+			dmi.kids[dmi.currently_hovered].DrawOpen(target, image.Pt(start.X+dmi.width, start.Y))
 		}
-		text.Draw(target, mi.Text(), MenuFontFace, start.X, start.Y, Style.FGColorStrong)
+		text.Draw(target, mi.Text(), MenuFontFace, start.X+menu_x_padding, start.Y+MenuFontPeriodFromTop+tab_y_padding, Style.FGColorStrong)
 
-		start.Y += MenuFontSize + menu_y_padding
+		start.Y += MenuFontSize + menu_y_padding*2
 
 	}
 
@@ -159,7 +164,7 @@ type MenuBar struct {
 }
 
 // TakeKeyboard implements Widget
-func (mb *MenuBar) TakeKeyboard(key ebiten.Key) {
+func (mb *MenuBar) TakeKeyboard() {
 	log.Println("TakeKeyboard unimplemented for menubar")
 	//panic("unimplemented")
 }
@@ -198,7 +203,7 @@ func (mb *MenuBar) Draw(target *ebiten.Image) {
 		}
 		ebitenutil.DrawRect(target, float64(my_r.Min.X), float64(my_r.Min.Y), float64(my_r.Dx()), float64(my_r.Dy()), my_c)
 
-		text.Draw(target, mb.TopLevelItems[i].Text(), MenuFontFace, my_r.Min.X+menu_bar_x_padding, my_r.Max.Y-menu_bar_y_padding-MenuFontDescent/2, Style.FGColorStrong)
+		text.Draw(target, mb.TopLevelItems[i].Text(), MenuFontFace, my_r.Min.X+menu_bar_x_padding, my_r.Max.Y-menu_bar_y_padding-MenuFontPeriodFromTop/2, Style.FGColorStrong)
 
 		if i == mb.currently_open {
 			mb.TopLevelItems[i].DrawOpen(target, BottomLeft(my_r))
@@ -287,7 +292,7 @@ func (mb *MenuBar) SetRect(rect image.Rectangle) {
 	if len(mb.TopLevelRects) != len(mb.TopLevelItems) {
 		mb.TopLevelRects = make([]image.Rectangle, len(mb.TopLevelItems))
 	}
-	start_x := mb.Rectangle.Min.X
+	start_x := mb.Min.X
 	y_start := mb.Min.Y
 	y_end := mb.Max.Y
 	for i, item := range mb.TopLevelItems {

@@ -114,7 +114,7 @@ func (te *TextEditor) Newline() {
 func (te *TextEditor) SetText(s string) {
 	te.text = strings.Split(s, "\n")
 }
-func (te *TextEditor) TakeKeyboard(key ebiten.Key) {
+func (te *TextEditor) TakeKeyboard() {
 	if te.ReadOnly {
 		return
 	}

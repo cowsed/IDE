@@ -48,10 +48,10 @@ func init() {
 		SubPixelsY:        0,
 	}
 	MenuFontFace = truetype.NewFace(MenuFont, &MenuFontOpts)
-	MenuFontDescent = MenuFontFace.Metrics().Descent.Round()
+	MenuFontPeriodFromTop = MenuFontFace.Metrics().Height.Round() - MenuFontFace.Metrics().Descent.Round()
 
 	//Code font
-	f3, err := os.Open("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
+	f3, err := os.Open("Fonts/Source_Code_Pro/SourceCodePro-Light.ttf")
 	check(err)
 	defer f3.Close()
 	font_bytes3, err := io.ReadAll(f3)
@@ -85,7 +85,7 @@ var CodeFontPeriodFromTop int
 var MenuFontSize int = 14
 var MenuFont *truetype.Font
 var MenuFontFace font.Face
-var MenuFontDescent int
+var MenuFontPeriodFromTop int
 
 var tab_x_padding int = 13
 var tab_y_padding int = 8
