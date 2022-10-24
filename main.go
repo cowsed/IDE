@@ -182,6 +182,7 @@ func (g *Editor) Layout(outsideWidth, outsideHeight int) (int, int) {
 */
 
 func main() {
+	ParseSyntaxHighlightingDefinitions()
 
 	menu_items := []MenuItem{
 		NewMenuItem("File", []MenuItem{NewMenuItem("Save", nil), NewMenuItem("Save as", nil), NewMenuItem("Open", nil), NewMenuItem("Close", nil), NewMenuItem("Quit", nil)}),

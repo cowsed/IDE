@@ -144,9 +144,10 @@ func (t *Tabs) MouseOver(x int, y int) Widget {
 
 // SetRect implements Widget
 func (t *Tabs) SetRect(rect image.Rectangle) {
-	t.TabHeight = MainFontSize + 2*tab_y_padding
 	t.Rectangle = rect
 	tabs_rect := rect
+	t.TabHeight = MainFontSize + 2*tab_y_padding
+
 	tabs_rect.Max.Y = rect.Min.Y + t.TabHeight
 
 	if len(t.TabHeaderRects) != len(t.Tabs) {
