@@ -8,7 +8,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text"
 )
 
@@ -19,11 +18,18 @@ type Cursor struct {
 }
 type TextEditor struct {
 	image.Rectangle
-	ReadOnly bool
-	text     []string
-	text_tex *ebiten.Image
-	cursor   Cursor
-	uptodate bool
+	ReadOnly           bool
+	text               []string
+	text_tex           *ebiten.Image
+	cursor             Cursor
+	uptodate           bool
+	scroll             float64
+	last_interact_time uint64
+	focused            bool
+}
+
+func (te *TextEditor) KeyboardFocusLost() {
+	te.focused = false
 }
 
 // Draw implements Widget
@@ -43,59 +49,83 @@ func (te *TextEditor) Draw(target *ebiten.Image) {
 		return
 	}
 	te.DrawCursor(target)
-	//Draw "shadow" from the top
-	y := te.Rectangle.Min.Y
-	for i := 1; i < 10; i++ {
-		y++
-		col := color.RGBA{
-			A: 70 - uint8(i*5),
+	if te.scroll > 0 {
+		//Draw "shadow" from the top
+		y := te.Rectangle.Min.Y
+		for i := 1; i < 10; i++ {
+			y++
+			col := color.RGBA{
+				A: 70 - uint8(i*5),
+			}
+			ebitenutil.DrawLine(target, float64(te.Min.X), float64(y), float64(te.Max.X), float64(y), col)
 		}
-		ebitenutil.DrawLine(target, float64(te.Min.X), float64(y), float64(te.Max.X), float64(y), col)
 	}
-
 }
 func (te *TextEditor) DrawCursor(target *ebiten.Image) {
+	if !te.focused {
+		return
+	}
 	y := te.cursor.row * CodeFontSize
 	start := te.Min
 	width := text.BoundString(CodeFontFace, te.text[te.cursor.row][:te.cursor.col]).Dx()
 
 	num_trailing_spaces := 0
+	consumed_whole := true
 	for i := len(te.text[te.cursor.row][:te.cursor.col]) - 1; i >= 0; i-- {
 		if te.text[te.cursor.row][:te.cursor.col][i:i+1] == " " {
 			num_trailing_spaces++
 		} else {
+			consumed_whole = false
 			break
 		}
 	}
-	space_width, _ := CodeFontFace.GlyphAdvance(' ')
-	width += num_trailing_spaces * space_width.Round()
-	move_over := 3
-	width += move_over
-	ebitenutil.DrawLine(target, float64(start.X+width), float64(start.Y+y), float64(start.X+width), float64(start.Y+y+CodeFontSize), Style.FGColorMuted)
+
+	num_leading_spaces := 0 //we only count leading spaces if we didnt count them when counting trailing spaces (in a string of all spaces, if we didnt do this we would count all the spaces twice)
+	if !consumed_whole {
+		for _, c := range te.text[te.cursor.row][:te.cursor.col] {
+			if c == rune(" "[0]) {
+				num_leading_spaces++
+			} else {
+				break
+			}
+		}
+	}
+	if ((ticks-te.last_interact_time)/40)%2 == 0 {
+		space_width, _ := CodeFontFace.GlyphAdvance(' ')
+		width += (num_trailing_spaces + num_leading_spaces) * space_width.Round()
+		move_over := 3
+		width += move_over
+		ebitenutil.DrawLine(target, float64(start.X+width), float64(start.Y+y), float64(start.X+width), float64(start.Y+y+CodeFontSize), Style.FGColorMuted)
+	}
 }
 
 func (te *TextEditor) DrawTextTexture() {
 
 	needed_dims := text.BoundString(CodeFontFace, strings.Join(te.text, "\n"))
-	needed_dims.Max.Y += 11
+	needed_dims.Max.Y += CodeFontPeriodFromTop
 	needed_dims.Max.X = max(needed_dims.Max.X, 1)
-	if te.text_tex == nil {
+	if te.text_tex == nil || (te.Rectangle.Dx() != te.text_tex.Bounds().Dx() || te.Rectangle.Dy() != te.text_tex.Bounds().Dy()) {
 		te.text_tex = ebiten.NewImage(te.Dx(), te.Dy())
 	}
 	te.text_tex.Fill(color.RGBA{})
-	text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, CodeFontPeriodFromTop, Style.FGColorMuted)
+	text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, text_edit_top_padding+CodeFontPeriodFromTop, Style.FGColorMuted) //@optimmize iterate through text and draw each line individuall. saves time by skipping the join
 
 }
 func (te *TextEditor) MarkRedraw() {
 	te.uptodate = false
 }
 func (te *TextEditor) EnterText(s string) {
-	te.text[te.cursor.row] += s
+	te.Interacted()
+	before := te.text[te.cursor.row][:te.cursor.col]
+	after := te.text[te.cursor.row][te.cursor.col:]
+	te.text[te.cursor.row] = before + s + after
 	te.cursor.col += len(s)
 	te.MarkRedraw()
 }
 
 func (te *TextEditor) Backspace() {
+	te.Interacted()
+
 	if te.cursor.col == 0 && te.cursor.row == 0 {
 		return
 	}
@@ -131,8 +161,10 @@ func (te *TextEditor) Backspace() {
 	te.text[te.cursor.row] = line
 	te.cursor.col--
 	te.MarkRedraw()
+	te.Interacted()
 }
 func (te *TextEditor) CursorLeft() {
+	te.Interacted()
 	if te.cursor.col == 0 && te.cursor.row == 0 {
 		return
 	}
@@ -145,6 +177,7 @@ func (te *TextEditor) CursorLeft() {
 	te.cursor.col--
 }
 func (te *TextEditor) CursorRight() {
+	te.Interacted()
 	//if at the end of a line
 	if te.cursor.col > len(te.text[te.cursor.row])-1 {
 		//if at the end of the file, cant go to the next line
@@ -162,6 +195,8 @@ func (te *TextEditor) CursorRight() {
 
 }
 func (te *TextEditor) CursorDown() {
+	te.Interacted()
+
 	//already at the bottom of the file
 	if te.cursor.row >= len(te.text)-1 {
 		te.cursor.col = len(te.text[te.cursor.row])
@@ -172,6 +207,7 @@ func (te *TextEditor) CursorDown() {
 
 }
 func (te *TextEditor) CursorUp() {
+	te.Interacted()
 	//already at the top of the file
 	if te.cursor.row <= 0 {
 		te.cursor.col = 0
@@ -181,18 +217,21 @@ func (te *TextEditor) CursorUp() {
 	te.cursor.col = min(te.cursor.col, len(te.text[te.cursor.row]))
 }
 func (te *TextEditor) Newline() {
-	//te.text[te.cursor.row:] = append("", te.text[te.cursor.row:])
-	//te.text = append(append(te.text[0:te.cursor.row], ""), te.text[te.cursor.row:]...)
-	newtext := make([]string, len(te.text)+1)
-	old_index := 0
-	new_index := 0
-	for old_index < len(te.text) {
+	te.Interacted()
 
-		newtext[new_index] = te.text[old_index]
+	line := te.text[te.cursor.row]
+	line_before := line[:te.cursor.col]
+	line_after := line[te.cursor.col:]
 
-		old_index++
-		new_index++
+	lines_before := te.text[:te.cursor.row] //up to line with cursor
+	lines_after := []string{}
+	if te.cursor.row+1 < len(te.text) {
+		lines_after = te.text[te.cursor.row+1:] //the rest starting at the line after where the cursor is
 	}
+	newtext := make([]string, len(lines_before), len(te.text)+1)
+	copy(newtext, lines_before)
+	newtext = append(newtext, line_before, line_after)
+	newtext = append(newtext, lines_after...)
 	te.text = newtext
 	te.cursor.row++
 	te.cursor.col = 0
@@ -200,43 +239,65 @@ func (te *TextEditor) Newline() {
 func (te *TextEditor) SetText(s string) {
 	te.text = strings.Split(s, "\n")
 }
-func KeyJustPressedOrKeyRepeated(key ebiten.Key) bool {
-	delay_before_repeat := 20
-	repeat_frequency := 3
-	if ebiten.IsKeyPressed(key) && inpututil.KeyPressDuration(key) > delay_before_repeat && inpututil.KeyPressDuration(key)%repeat_frequency == 0 {
-		return true
+
+func (te *TextEditor) Tab() {
+	te.EnterText("    ")
+}
+func (te *TextEditor) SelectAll() {
+	log.Println("Selectall unimplemented")
+	te.Interacted()
+}
+func (te *TextEditor) EndLine() {
+	te.cursor.col = len(te.text[te.cursor.row])
+	te.Interacted()
+}
+func (te *TextEditor) StartLine() {
+	te.cursor.col = 0
+	te.Interacted()
+}
+func (te *TextEditor) handle_shortcuts() {
+	local_shortcuts := map[KeyShortcut]func(){
+		{key: ebiten.KeyEnd}:               te.EndLine,
+		{key: ebiten.KeyHome}:              te.StartLine,
+		{key: ebiten.KeyBackspace}:         te.Backspace,
+		{key: ebiten.KeyTab}:               te.Tab,
+		{key: ebiten.KeyEnter}:             te.Newline,
+		{key: ebiten.KeyLeft}:              te.CursorLeft,
+		{key: ebiten.KeyRight}:             te.CursorRight,
+		{key: ebiten.KeyUp}:                te.CursorUp,
+		{key: ebiten.KeyDown}:              te.CursorDown,
+		{mod_ctrl: true, key: ebiten.KeyA}: te.SelectAll,
 	}
-	if inpututil.IsKeyJustPressed(key) {
-		return true
+	ctrl_state := ebiten.IsKeyPressed(ebiten.KeyControl)
+	shift_state := ebiten.IsKeyPressed(ebiten.KeyShift)
+	alt_state := ebiten.IsKeyPressed(ebiten.KeyAlt)
+	meta_state := ebiten.IsKeyPressed(ebiten.KeyMeta)
+
+	for shortcut := range local_shortcuts {
+		if KeyJustPressedOrKeyRepeated(shortcut.key) {
+			executable := local_shortcuts[KeyShortcut{
+				mod_shift: shift_state,
+				mod_ctrl:  ctrl_state,
+				mod_alt:   alt_state,
+				mod_meta:  meta_state,
+				key:       shortcut.key,
+			}]
+			if executable != nil {
+				executable()
+			}
+		}
 	}
-	return false
 }
 func (te *TextEditor) TakeKeyboard() {
+	te.handle_shortcuts()
+
 	if te.ReadOnly {
 		return
 	}
 
-	if KeyJustPressedOrKeyRepeated(ebiten.KeyBackspace) {
-		te.Backspace()
+	if ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyAlt) || ebiten.IsKeyPressed(ebiten.KeyMeta) {
+		return
 	}
-	if KeyJustPressedOrKeyRepeated(ebiten.KeyLeft) {
-		te.CursorLeft()
-	}
-	if KeyJustPressedOrKeyRepeated(ebiten.KeyRight) {
-		te.CursorRight()
-	}
-
-	if KeyJustPressedOrKeyRepeated(ebiten.KeyUp) {
-		te.CursorUp()
-	}
-	if KeyJustPressedOrKeyRepeated(ebiten.KeyDown) {
-		te.CursorDown()
-	}
-
-	if KeyJustPressedOrKeyRepeated(ebiten.KeyEnter) {
-		te.Newline()
-	}
-
 	var b []rune
 	b = ebiten.AppendInputChars(b[:0])
 	if len(b) > 0 {
@@ -244,17 +305,18 @@ func (te *TextEditor) TakeKeyboard() {
 	}
 
 }
+func (te *TextEditor) Interacted() {
+	te.last_interact_time = ticks
+}
 
-// LMouseDown implements Widget
 func (te *TextEditor) LMouseDown(x int, y int) Widget {
-	log.Println("LMOUSEDOWN ON TEXT EDITOR UNIMPLEMENTED")
-	//panic("unimplemented")
+	te.focused = true
 	return te
 }
 
 // LMouseUp implements Widget
 func (te *TextEditor) LMouseUp(x int, y int) Widget {
-	log.Println("LMOUSEUP ON TEXT EDITOR UNIMPLEMENTED")
+	te.focused = true
 	return te
 }
 
@@ -272,3 +334,8 @@ func (te *TextEditor) MouseOver(x int, y int) Widget {
 func (te *TextEditor) SetRect(rect image.Rectangle) {
 	te.Rectangle = rect
 }
+
+/*
+Shortcut functions
+Press the key combo and do these common actions
+*/

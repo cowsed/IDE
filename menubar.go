@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image"
-	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -163,10 +162,13 @@ type MenuBar struct {
 	WidgetIApplyTo Widget
 }
 
+// KeyboardFocusLost implements Widget
+func (te *MenuBar) KeyboardFocusLost() {
+
+}
+
 // TakeKeyboard implements Widget
 func (mb *MenuBar) TakeKeyboard() {
-	log.Println("TakeKeyboard unimplemented for menubar")
-	//panic("unimplemented")
 }
 
 // MouseOut implements Widget

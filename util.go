@@ -6,8 +6,20 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
+func KeyJustPressedOrKeyRepeated(key ebiten.Key) bool {
+	delay_before_repeat := 20
+	repeat_frequency := 3
+	if ebiten.IsKeyPressed(key) && inpututil.KeyPressDuration(key) > delay_before_repeat && inpututil.KeyPressDuration(key)%repeat_frequency == 0 {
+		return true
+	}
+	if inpututil.IsKeyJustPressed(key) {
+		return true
+	}
+	return false
+}
 func max(a, b int) int {
 	if a > b {
 		return a

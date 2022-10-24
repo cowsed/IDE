@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -17,6 +16,7 @@ type Widget interface {
 	SetRect(rect image.Rectangle)
 	//Keyboard events get sent to the place that last received mouse input
 	TakeKeyboard()
+	KeyboardFocusLost()
 	//Mouse events return a pointer(interfaces are just pointers) to the widget that actually used the input
 	//this is used to tell that widget when a mouse out happens
 	MouseOut()
@@ -45,6 +45,11 @@ type Tabs struct {
 	CurrentTab      int
 	TabHeight       int
 	current_hovered int
+}
+
+// KeyboardFocusLost implements Widget
+func (t *Tabs) KeyboardFocusLost() {
+
 }
 
 // TakeKeyboard implements Widget
@@ -89,7 +94,6 @@ func (t *Tabs) LMouseDown(x int, y int) Widget {
 	if y < t.Rectangle.Min.Y+t.TabHeight {
 		for i := 0; i < len(t.TabHeaderRects); i++ {
 			if image.Pt(x, y).In(t.TabHeaderRects[i]) {
-				fmt.Println("tab switched")
 				t.CurrentTab = i
 			}
 		}
@@ -104,7 +108,7 @@ func (t *Tabs) LMouseDown(x int, y int) Widget {
 
 func (t *Tabs) LMouseUp(x int, y int) Widget {
 	// over tabs
-	if x < t.Rectangle.Min.X+t.TabHeight {
+	if y < t.Rectangle.Min.Y+t.TabHeight {
 		return t
 	}
 	//over body
@@ -144,10 +148,7 @@ func (t *Tabs) SetRect(rect image.Rectangle) {
 	//Generate rects describing tabs
 	start := tabs_rect.Min
 	for i := 0; i < len(t.Tabs); i++ {
-		//fmt.Println("----")
-		//fmt.Println(t.Titles[i])
 		text_width := text.BoundString(MainFontFace, t.Titles[i]).Dx()
-		//fmt.Println(text_width)
 
 		tab_rect := image.Rect(0, 0, text_width+2*tab_x_padding, MainFontSize+2*tab_y_padding)
 
@@ -176,6 +177,11 @@ type HorizontalSplitter struct {
 	border_hovered    bool
 }
 
+// KeyboardFocusLost implements Widget
+func (*HorizontalSplitter) KeyboardFocusLost() {
+	panic("unimplemented")
+}
+
 // TakeKeyboard implements Widget
 func (hz *HorizontalSplitter) TakeKeyboard() {
 	log.Println("TakeKeyboard unimplemented for horizontal splitter")
@@ -184,13 +190,11 @@ func (hz *HorizontalSplitter) TakeKeyboard() {
 
 // MouseOut implements Widget
 func (*HorizontalSplitter) MouseOut() {
-	fmt.Println("lost mouse")
 }
 
 func (hz *HorizontalSplitter) LMouseUp(x, y int) Widget {
 	if hz.dragging {
 		hz.dragging = false //cant be dragging if we let go
-		fmt.Print("stoped draggin\n")
 	} else if x < hz.split_x-hz.border_half_width {
 		if hz.Left != nil {
 			return hz.Left.LMouseUp(x, y)
@@ -249,7 +253,6 @@ func (hz *HorizontalSplitter) MouseOver(x, y int) Widget {
 
 	}
 	if hz.dragging {
-		fmt.Println("Draggin")
 		ebiten.SetCursorShape(ebiten.CursorShapeEWResize)
 		hz.split_x = x
 		//stop from going too far that you can't reach the handle
@@ -291,7 +294,6 @@ func (hz *HorizontalSplitter) SetRect(r image.Rectangle) {
 	x_percent := float64(hz.split_x) / float64(old_width)
 
 	hz.split_x = int(x_percent * float64(r.Dx()))
-	fmt.Println(hz.split_x, x_percent)
 
 	left_rect_min_x := hz.Rectangle.Min.X
 	left_rect_max_x := hz.Rectangle.Min.X + hz.split_x  // - hz.border_half_width
@@ -316,6 +318,11 @@ func NewColorRect(col color.Color) *ColorRect {
 type ColorRect struct {
 	image.Rectangle
 	color color.Color
+}
+
+// KeyboardFocusLost implements Widget
+func (*ColorRect) KeyboardFocusLost() {
+	panic("unimplemented")
 }
 
 // TakeKeyboard implements Widget

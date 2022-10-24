@@ -16,14 +16,17 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
+var ticks uint64
+
 type Editor struct {
 	screenWidth  int
 	screenHeight int
 
 	should_close bool
 
-	MainWidget          Widget
-	last_mouse_consumer Widget
+	MainWidget             Widget
+	last_mouse_consumer    Widget //widget to send mouseout to
+	last_keyboard_consumer Widget //Widget to send keyboard inputs to
 }
 
 func ToggleFullscreen() {
@@ -33,8 +36,9 @@ func (g *Editor) SetShouldClose() {
 	g.should_close = true
 }
 func (g *Editor) Update() error {
+	ticks++
 	if g.should_close {
-		return errors.New("game ended by player")
+		return errors.New("editor closed by user")
 	}
 	if !ebiten.IsFocused() {
 		return nil
@@ -42,18 +46,26 @@ func (g *Editor) Update() error {
 
 	//mouse handling
 	x, y := ebiten.CursorPosition()
-	consumer := g.MainWidget.MouseOver(x, y)
-	if consumer != g.last_mouse_consumer {
+	mouse_consumer := g.MainWidget.MouseOver(x, y)
+	if mouse_consumer != g.last_mouse_consumer {
 		if g.last_mouse_consumer != nil {
 			g.last_mouse_consumer.MouseOut()
 		}
 	}
-	g.last_mouse_consumer = consumer
+	g.last_mouse_consumer = mouse_consumer
 
+	key_consumer := g.last_keyboard_consumer
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		g.MainWidget.LMouseDown(x, y)
+		consumer := g.MainWidget.LMouseDown(x, y)
+		if consumer != nil {
+			key_consumer = consumer
+		}
 	} else if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
-		g.MainWidget.LMouseUp(x, y)
+		consumer := g.MainWidget.LMouseUp(x, y)
+		if consumer != nil {
+			key_consumer = consumer
+		}
+
 	}
 
 	global_shortcuts := map[KeyShortcut]func(){
@@ -98,8 +110,17 @@ func (g *Editor) Update() error {
 		}
 	}
 
+	if key_consumer != g.last_keyboard_consumer {
+		if g.last_keyboard_consumer != nil {
+			g.last_keyboard_consumer.KeyboardFocusLost()
+		}
+	}
+	g.last_keyboard_consumer = key_consumer
+
 	//Keyboard handling
-	consumer.TakeKeyboard()
+	if g.last_keyboard_consumer != nil {
+		g.last_keyboard_consumer.TakeKeyboard()
+	}
 	return nil
 }
 
@@ -137,15 +158,18 @@ func main() {
 		NewMenuItem("Edit", []MenuItem{NewMenuItem("Copy", nil), NewMenuItem("Cut", nil), NewMenuItem("Pasta", nil)}),
 		NewMenuItem("Code", []MenuItem{NewMenuItem("Go To", []MenuItem{NewMenuItem("Symbol Definition", nil)})}),
 	}
-	data_pane := &TextEditor{
+	te1 := &TextEditor{text: strings.Split("", "\n")}
+
+	var data_pane *TextEditor = &TextEditor{
 		ReadOnly: true,
 	}
 	ticker := time.NewTicker(time.Second / 60)
 	go func() {
 		for t := range ticker.C {
-			data_pane.SetText(fmt.Sprintf("\nData:\ntime: %v\nTPS: %f\nFPS: %f", t.Format(time.Kitchen), ebiten.ActualTPS(), ebiten.ActualFPS()))
+			data_pane.SetText(fmt.Sprintf("\nData:\ntime: %v\nTPS: %f\nFPS: %f\nTicks: %d\nTETick: %d", t.Format(time.Kitchen), ebiten.ActualTPS(), ebiten.ActualFPS(), ticks, te1.last_interact_time))
 		}
 	}()
+
 	main_view := &HorizontalSplitter{
 		split_x: 200,
 		Left:    data_pane,
@@ -153,7 +177,7 @@ func main() {
 			current_hovered: -1,
 			Titles:          []string{"Text editor", "Blue", "Green", "Red"},
 			Tabs: []Widget{
-				&TextEditor{text: strings.Split("", "\n")},
+				te1,
 				NewColorRect(Style.BlueMuted),
 				NewColorRect(Style.GreenMuted),
 				NewColorRect(Style.RedMuted),

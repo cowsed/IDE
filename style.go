@@ -87,6 +87,8 @@ var MenuFont *truetype.Font
 var MenuFontFace font.Face
 var MenuFontPeriodFromTop int
 
+var text_edit_top_padding = 3
+
 var tab_x_padding int = 13
 var tab_y_padding int = 8
 
