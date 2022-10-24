@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -143,6 +144,7 @@ func (t *Tabs) MouseOver(x int, y int) Widget {
 
 // SetRect implements Widget
 func (t *Tabs) SetRect(rect image.Rectangle) {
+	t.TabHeight = MainFontSize + 2*tab_y_padding
 	t.Rectangle = rect
 	tabs_rect := rect
 	tabs_rect.Max.Y = rect.Min.Y + t.TabHeight
@@ -158,7 +160,9 @@ func (t *Tabs) SetRect(rect image.Rectangle) {
 		text_width := text.BoundString(MainFontFace, t.Titles[i]).Dx()
 
 		tab_rect := image.Rect(0, 0, text_width+2*tab_x_padding, MainFontSize+2*tab_y_padding)
-
+		if i == 0 {
+			fmt.Println(tab_rect.Dy())
+		}
 		t.TabHeaderRects[i] = tab_rect.Add(start)
 
 		start = start.Add(image.Pt(tab_rect.Dx(), 0))
