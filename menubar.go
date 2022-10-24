@@ -162,6 +162,11 @@ type MenuBar struct {
 	WidgetIApplyTo Widget
 }
 
+// Title implements Widget
+func (*MenuBar) Title() string {
+	panic("unimplemented")
+}
+
 // KeyboardFocusLost implements Widget
 func (te *MenuBar) KeyboardFocusLost() {
 

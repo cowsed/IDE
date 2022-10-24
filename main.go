@@ -29,6 +29,34 @@ type Editor struct {
 	last_keyboard_consumer Widget //Widget to send keyboard inputs to
 }
 
+func (g *Editor) Rebuild() {
+	rect := image.Rect(0, 0, g.screenWidth, g.screenHeight)
+	g.MainWidget.SetRect(rect)
+
+}
+func (g *Editor) IncreaseFontSize() {
+	MainFontSize += 2
+	CodeFontSize += 2
+
+	MainFontFace, MainFontPeriodFromTop = MakeFace(MainFont, MainFontSize)
+	CodeFontFace, CodeFontPeriodFromTop = MakeFace(CodeFont, CodeFontSize)
+	g.Rebuild()
+}
+func (g *Editor) DecreaseFontSize() {
+	MainFontSize -= 2
+	CodeFontSize -= 2
+	if MainFontSize < MinFontSize {
+		MainFontSize = MinFontSize
+	}
+	if CodeFontSize < MinFontSize {
+		CodeFontSize = MinFontSize
+	}
+
+	MainFontFace, MainFontPeriodFromTop = MakeFace(MainFont, MainFontSize)
+	CodeFontFace, CodeFontPeriodFromTop = MakeFace(CodeFont, CodeFontSize)
+	g.Rebuild()
+}
+
 func ToggleFullscreen() {
 	ebiten.SetFullscreen(!ebiten.IsFullscreen())
 }
@@ -83,6 +111,8 @@ func (g *Editor) Update() error {
 			mod_meta:  false,
 			key:       ebiten.KeyQ,
 		}: g.SetShouldClose,
+		{mod_ctrl: true, mod_shift: true, key: ebiten.KeyEqual}:  g.IncreaseFontSize,
+		{mod_ctrl: true, mod_shift: false, key: ebiten.KeyMinus}: g.DecreaseFontSize,
 	}
 	//special function keys
 	ctrl_down := ebiten.IsKeyPressed(ebiten.KeyControl)

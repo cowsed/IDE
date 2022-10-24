@@ -26,6 +26,22 @@ type TextEditor struct {
 	scroll             float64
 	last_interact_time uint64
 	focused            bool
+	saved              bool
+	filepath           string
+	filename           string
+}
+
+// Title implements Widget
+func (te *TextEditor) Title() string {
+	if te.filepath == "" {
+		return "untitled*"
+	} else {
+		s := te.filename
+		if !te.saved {
+			s += "*"
+		}
+		return s
+	}
 }
 
 func (te *TextEditor) KeyboardFocusLost() {
@@ -93,7 +109,7 @@ func (te *TextEditor) DrawCursor(target *ebiten.Image) {
 	if ((ticks-te.last_interact_time)/40)%2 == 0 {
 		space_width, _ := CodeFontFace.GlyphAdvance(' ')
 		width += (num_trailing_spaces + num_leading_spaces) * space_width.Round()
-		move_over := 3
+		move_over := 1
 		width += move_over
 		ebitenutil.DrawLine(target, float64(start.X+width), float64(start.Y+y), float64(start.X+width), float64(start.Y+y+CodeFontSize), Style.FGColorMuted)
 	}
@@ -240,21 +256,6 @@ func (te *TextEditor) SetText(s string) {
 	te.text = strings.Split(s, "\n")
 }
 
-func (te *TextEditor) Tab() {
-	te.EnterText("    ")
-}
-func (te *TextEditor) SelectAll() {
-	log.Println("Selectall unimplemented")
-	te.Interacted()
-}
-func (te *TextEditor) EndLine() {
-	te.cursor.col = len(te.text[te.cursor.row])
-	te.Interacted()
-}
-func (te *TextEditor) StartLine() {
-	te.cursor.col = 0
-	te.Interacted()
-}
 func (te *TextEditor) handle_shortcuts() {
 	local_shortcuts := map[KeyShortcut]func(){
 		{key: ebiten.KeyEnd}:               te.EndLine,
@@ -311,6 +312,7 @@ func (te *TextEditor) Interacted() {
 
 func (te *TextEditor) LMouseDown(x int, y int) Widget {
 	te.focused = true
+	//local_y := y - text_edit_top_padding - te.Min.Y
 	return te
 }
 
@@ -339,3 +341,18 @@ func (te *TextEditor) SetRect(rect image.Rectangle) {
 Shortcut functions
 Press the key combo and do these common actions
 */
+func (te *TextEditor) Tab() {
+	te.EnterText("    ")
+}
+func (te *TextEditor) SelectAll() {
+	log.Println("Selectall unimplemented")
+	te.Interacted()
+}
+func (te *TextEditor) EndLine() {
+	te.cursor.col = len(te.text[te.cursor.row])
+	te.Interacted()
+}
+func (te *TextEditor) StartLine() {
+	te.cursor.col = 0
+	te.Interacted()
+}

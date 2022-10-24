@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
 	"io"
 	"os"
@@ -11,73 +10,47 @@ import (
 )
 
 func init() {
-	f, err := os.Open("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
+	MainFont = LoadFont("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
+	MenuFont = LoadFont("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
+	CodeFont = LoadFont("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
+
+	MainFontFace, MainFontPeriodFromTop = MakeFace(MainFont, MainFontSize)
+	MenuFontFace, MenuFontPeriodFromTop = MakeFace(MenuFont, MenuFontSize)
+	CodeFontFace, CodeFontPeriodFromTop = MakeFace(CodeFont, CodeFontSize)
+}
+func LoadFont(path string) (font *truetype.Font) {
+	f, err := os.Open(path)
 	check(err)
 	defer f.Close()
 	font_bytes, err := io.ReadAll(f)
 	check(err)
-
-	MainFont, err = truetype.Parse(font_bytes)
+	font, err = truetype.Parse(font_bytes)
 	check(err)
-	MainFontOpts := truetype.Options{
-		Size:              float64(MainFontSize),
+
+	return font
+}
+func MakeFace(font *truetype.Font, size int) (font.Face, int) {
+	FontOpts := truetype.Options{
+		Size:              float64(size),
 		DPI:               0,
 		Hinting:           0,
 		GlyphCacheEntries: 0,
 		SubPixelsX:        0,
 		SubPixelsY:        0,
 	}
-	MainFontFace = truetype.NewFace(MainFont, &MainFontOpts)
-	MainFontPeriodFromTop = MainFontFace.Metrics().Height.Round() - MainFontFace.Metrics().Descent.Round()
-
-	//menu bar font
-	f2, err := os.Open("Fonts/Source_Code_Pro/SourceCodePro-Regular.ttf")
-	check(err)
-	defer f2.Close()
-	font_bytes2, err := io.ReadAll(f2)
-	check(err)
-
-	MenuFont, err = truetype.Parse(font_bytes2)
-	check(err)
-	MenuFontOpts := truetype.Options{
-		Size:              float64(MenuFontSize),
-		DPI:               0,
-		Hinting:           0,
-		GlyphCacheEntries: 0,
-		SubPixelsX:        0,
-		SubPixelsY:        0,
-	}
-	MenuFontFace = truetype.NewFace(MenuFont, &MenuFontOpts)
-	MenuFontPeriodFromTop = MenuFontFace.Metrics().Height.Round() - MenuFontFace.Metrics().Descent.Round()
-
-	//Code font
-	f3, err := os.Open("Fonts/Source_Code_Pro/SourceCodePro-Light.ttf")
-	check(err)
-	defer f3.Close()
-	font_bytes3, err := io.ReadAll(f3)
-	check(err)
-
-	CodeFont, err = truetype.Parse(font_bytes3)
-	check(err)
-	CodeFontOpts := truetype.Options{
-		Size:              float64(CodeFontSize),
-		DPI:               0,
-		Hinting:           0,
-		GlyphCacheEntries: 0,
-		SubPixelsX:        0,
-		SubPixelsY:        0,
-	}
-	CodeFontFace = truetype.NewFace(CodeFont, &CodeFontOpts)
-	CodeFontPeriodFromTop = CodeFontFace.Metrics().Height.Round() - CodeFontFace.Metrics().Descent.Round()
-	fmt.Printf("metrics %+v\n", CodeFontFace.Metrics())
+	face := truetype.NewFace(font, &FontOpts)
+	PeriodFromTop := face.Metrics().Height.Round() - face.Metrics().Descent.Round()
+	return face, PeriodFromTop
 }
 
-var MainFontSize int = 20
+const MinFontSize = 6
+
+var MainFontSize int = 16
 var MainFont *truetype.Font
 var MainFontFace font.Face
 var MainFontPeriodFromTop int
 
-var CodeFontSize int = 20
+var CodeFontSize int = 16
 var CodeFont *truetype.Font
 var CodeFontFace font.Face
 var CodeFontPeriodFromTop int

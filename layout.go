@@ -12,6 +12,7 @@ import (
 )
 
 type Widget interface {
+	Title() string
 	Draw(target *ebiten.Image)
 	SetRect(rect image.Rectangle)
 	//Keyboard events get sent to the place that last received mouse input
@@ -47,6 +48,11 @@ type Tabs struct {
 	current_hovered int
 }
 
+// Title implements Widget
+func (t *Tabs) Title() string {
+	return "tabs"
+}
+
 // KeyboardFocusLost implements Widget
 func (t *Tabs) KeyboardFocusLost() {
 
@@ -54,7 +60,6 @@ func (t *Tabs) KeyboardFocusLost() {
 
 // TakeKeyboard implements Widget
 func (t *Tabs) TakeKeyboard() {
-	log.Println("TakeKeyboard unimplemented for tabs")
 }
 
 // MouseOut implements Widget
@@ -145,6 +150,8 @@ func (t *Tabs) SetRect(rect image.Rectangle) {
 	if len(t.TabHeaderRects) != len(t.Tabs) {
 		t.TabHeaderRects = make([]image.Rectangle, len(t.Tabs))
 	}
+	t.make_tab_titles()
+
 	//Generate rects describing tabs
 	start := tabs_rect.Min
 	for i := 0; i < len(t.Tabs); i++ {
@@ -166,6 +173,14 @@ func (t *Tabs) SetRect(rect image.Rectangle) {
 		}
 	}
 }
+func (t *Tabs) make_tab_titles() {
+	if len(t.Titles) != len(t.Tabs) {
+		t.Titles = make([]string, len(t.Tabs))
+	}
+	for i := range t.Tabs {
+		t.Titles[i] = t.Tabs[i].Title()
+	}
+}
 
 type HorizontalSplitter struct {
 	image.Rectangle
@@ -177,15 +192,18 @@ type HorizontalSplitter struct {
 	border_hovered    bool
 }
 
+// Title implements Widget
+func (*HorizontalSplitter) Title() string {
+	return "horizontal spliiter"
+}
+
 // KeyboardFocusLost implements Widget
 func (*HorizontalSplitter) KeyboardFocusLost() {
-	panic("unimplemented")
 }
 
 // TakeKeyboard implements Widget
 func (hz *HorizontalSplitter) TakeKeyboard() {
 	log.Println("TakeKeyboard unimplemented for horizontal splitter")
-	//panic("unimplemented")
 }
 
 // MouseOut implements Widget
@@ -309,6 +327,7 @@ func (hz *HorizontalSplitter) SetRect(r image.Rectangle) {
 	if hz.Right != nil {
 		hz.Right.SetRect(rightRect)
 	}
+
 }
 
 func NewColorRect(col color.Color) *ColorRect {
@@ -320,9 +339,13 @@ type ColorRect struct {
 	color color.Color
 }
 
+// Title implements Widget
+func (*ColorRect) Title() string {
+	return "color rect"
+}
+
 // KeyboardFocusLost implements Widget
 func (*ColorRect) KeyboardFocusLost() {
-	panic("unimplemented")
 }
 
 // TakeKeyboard implements Widget
