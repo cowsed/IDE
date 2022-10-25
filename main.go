@@ -190,7 +190,7 @@ func main() {
 		NewMenuItem("Code", []MenuItem{NewMenuItem("Go To", []MenuItem{NewMenuItem("Symbol Definition", nil)})}),
 	}
 	te1 := &TextEditor{text: strings.Split("", "\n")}
-
+	te1.highlighter = &definitions[0]
 	var data_pane *TextEditor = &TextEditor{
 		ReadOnly: true,
 	}

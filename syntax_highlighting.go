@@ -10,7 +10,7 @@ import (
 )
 
 // literally just a nano syntax highlighter
-var definition_paths = []string{"Highlighters/go.nanorc"}
+var definition_paths = []string{"Highlighters/go.nanorc", "Highlighters/c.nanorc"}
 
 // file ending to Highlighter
 var definitions []Highlighter
@@ -36,6 +36,9 @@ func ParseHighlighter(source string) (Highlighter, error) {
 	}
 	for _, line := range strings.Split(source, "\n") {
 		parts := strings.Split(line, " ")
+		if len(parts[0]) == 0 || parts[0][0:1] == "#" {
+			continue
+		}
 		switch parts[0] {
 		case "syntax":
 			lang := parts[1]

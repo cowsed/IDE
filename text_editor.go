@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/text"
+	"golang.org/x/image/colornames"
+	"golang.org/x/image/font"
 )
 
 var _ Widget = &TextEditor{}
@@ -18,17 +21,20 @@ type Cursor struct {
 }
 type TextEditor struct {
 	image.Rectangle
-	ReadOnly           bool
 	text               []string
 	text_tex           *ebiten.Image
 	cursor             Cursor
-	uptodate           bool
 	scroll             float64
-	last_interact_time uint64
-	focused            bool
-	saved              bool
-	filepath           string
-	filename           string
+	last_interact_time uint64 //tick alue of the last time we interacted (used to keep cursor alive while we're editing)
+	ReadOnly           bool   //can we edit this textbox
+	focused            bool   //does this textbox have keyboard focus
+	saved              bool   //is the file saved to disk
+	uptodate           bool
+
+	highlighter *Highlighter
+
+	filepath string
+	filename string
 }
 
 // Title implements Widget
@@ -83,32 +89,8 @@ func (te *TextEditor) DrawCursor(target *ebiten.Image) {
 	}
 	y := te.cursor.row * CodeFontSize
 	start := te.Min
-	width := text.BoundString(CodeFontFace, te.text[te.cursor.row][:te.cursor.col]).Dx()
-
-	num_trailing_spaces := 0
-	consumed_whole := true
-	for i := len(te.text[te.cursor.row][:te.cursor.col]) - 1; i >= 0; i-- {
-		if te.text[te.cursor.row][:te.cursor.col][i:i+1] == " " {
-			num_trailing_spaces++
-		} else {
-			consumed_whole = false
-			break
-		}
-	}
-
-	num_leading_spaces := 0 //we only count leading spaces if we didnt count them when counting trailing spaces (in a string of all spaces, if we didnt do this we would count all the spaces twice)
-	if !consumed_whole {
-		for _, c := range te.text[te.cursor.row][:te.cursor.col] {
-			if c == rune(" "[0]) {
-				num_leading_spaces++
-			} else {
-				break
-			}
-		}
-	}
+	width := font.MeasureString(CodeFontFace, te.text[te.cursor.row][:te.cursor.col]).Round()
 	if ((ticks-te.last_interact_time)/40)%2 == 0 {
-		space_width, _ := CodeFontFace.GlyphAdvance(' ')
-		width += (num_trailing_spaces + num_leading_spaces) * space_width.Round()
 		move_over := 1
 		width += move_over
 		ebitenutil.DrawLine(target, float64(start.X+width), float64(start.Y+y), float64(start.X+width), float64(start.Y+y+CodeFontSize), Style.FGColorMuted)
@@ -123,10 +105,92 @@ func (te *TextEditor) DrawTextTexture() {
 	if te.text_tex == nil || (te.Rectangle.Dx() != te.text_tex.Bounds().Dx() || te.Rectangle.Dy() != te.text_tex.Bounds().Dy()) {
 		te.text_tex = ebiten.NewImage(te.Dx(), te.Dy())
 	}
+	//draw background
 	te.text_tex.Fill(color.RGBA{})
-	text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, text_edit_top_padding+CodeFontPeriodFromTop, Style.FGColorMuted) //@optimmize iterate through text and draw each line individuall. saves time by skipping the join
+	if te.highlighter != nil {
+		te.DrawWithHighlighting()
+	} else {
+		//log.Println("uncool drawing")
+		//no ability to draw with syntax highlighting
+		text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, text_edit_top_padding+CodeFontPeriodFromTop, Style.FGColorMuted) //@optimmize iterate through text and draw each line individuall. saves time by skipping the join
 
+	}
 }
+func (te *TextEditor) DrawWithHighlighting() {
+	colors := map[string]color.Color{
+		"red":         Style.RedMuted,
+		"brightred":   Style.RedStrong,
+		"blue":        Style.BlueMuted,
+		"brightblue":  Style.BlueStrong,
+		"green":       Style.GreenMuted,
+		"brightgreen": Style.GreenStrong,
+		"yellow":      Style.YellowMuted,
+		"cyan":        Style.AquaStrong,
+		"magenta":     Style.PurpleMuted,
+		"brightblack": Style.Gray,
+	}
+	topleft := image.Pt(0, 0) //top left of the line
+	for _, line := range te.text {
+		lineusage := make([]bool, len(line))
+		use := func(start, end int) {
+			for i := max(0, start); i < min(len(lineusage), end); i++ {
+				lineusage[i] = true
+			}
+		}
+		already_used := func(start, end int) bool {
+			for i := max(0, start); i < min(len(lineusage), end); i++ {
+				if lineusage[i] {
+					return true
+				}
+			}
+			return false
+		}
+		print_usage := func() {
+			s := ""
+			for _, u := range lineusage {
+				if u {
+					s += "1"
+				} else {
+					s += "0"
+				}
+			}
+			fmt.Println(s)
+		}
+		//draw line in fgcolor as the back, handles any parts that aren't a special color
+		text.Draw(te.text_tex, line, CodeFontFace, topleft.X, text_edit_top_padding+CodeFontPeriodFromTop+topleft.Y, Style.FGColorMuted)
+		//for each highlighter regex, draw all that it can
+		if te.highlighter.expressions != nil && len(te.highlighter.expressions) > 0 {
+
+			for i := len(te.highlighter.expressions) - 1; i >= 0; i-- {
+				exp := te.highlighter.expressions[i]
+				//for _, exp := range te.highlighter.expressions {
+				fg_col, col_exists := colors[exp.fg_col]
+				if !col_exists {
+					fg_col = colornames.Greenyellow
+				}
+
+				indices := exp.reg.FindAllStringIndex(line, -1)
+				for _, startnend := range indices {
+					start := startnend[0]
+					end := startnend[len(startnend)-1]
+					if !already_used(start, end) {
+						fmt.Println("didnt overlaped")
+
+						advance := font.MeasureString(CodeFontFace, line[:start]).Round()
+						text.Draw(te.text_tex, line[start:end], CodeFontFace, topleft.X+advance, text_edit_top_padding+CodeFontPeriodFromTop+topleft.Y, fg_col)
+						use(start, end)
+					}
+
+					//before_width := font.BoundString(CodeFontFace, line[start:end]).Dx()
+				}
+			}
+			print_usage()
+			fmt.Println(line)
+		}
+		topleft.Y += CodeFontSize
+	}
+}
+
 func (te *TextEditor) MarkRedraw() {
 	te.uptodate = false
 }

@@ -97,6 +97,8 @@ var Style = StyleColors{
 	AquaMuted:     ParseHexColor("#689D6A"),
 	OrangeStrong:  ParseHexColor("#FE8019"),
 	OrangeMuted:   ParseHexColor("#D65D0E"),
+	Gray:          ParseHexColor("#a89984"),
+	White:         ParseHexColor("ebdbb2"),
 }
 
 type StyleColors struct {
@@ -126,4 +128,7 @@ type StyleColors struct {
 
 	OrangeStrong color.Color
 	OrangeMuted  color.Color
+
+	White color.Color
+	Gray  color.Color
 }
