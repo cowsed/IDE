@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -10,7 +9,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/text"
-	"golang.org/x/image/colornames"
 	"golang.org/x/image/font"
 )
 
@@ -57,7 +55,9 @@ func (te *TextEditor) KeyboardFocusLost() {
 // Draw implements Widget
 func (te *TextEditor) Draw(target *ebiten.Image) {
 	ebitenutil.DrawRect(target, float64(te.Min.X), float64(te.Min.Y), float64(te.Dx()), float64(te.Dy()), Style.BGColorMuted)
-	te.DrawTextTexture()
+	if !te.uptodate {
+		te.DrawTextTexture()
+	}
 	//}
 	geo := ebiten.GeoM{}
 	geo.Translate(float64(te.Min.X), float64(te.Min.Y))
@@ -115,6 +115,7 @@ func (te *TextEditor) DrawTextTexture() {
 		text.Draw(te.text_tex, strings.Join(te.text, "\n"), CodeFontFace, 0, text_edit_top_padding+CodeFontPeriodFromTop, Style.FGColorMuted) //@optimmize iterate through text and draw each line individuall. saves time by skipping the join
 
 	}
+	te.uptodate = true
 }
 func (te *TextEditor) DrawWithHighlighting() {
 	colors := map[string]color.Color{
@@ -128,64 +129,51 @@ func (te *TextEditor) DrawWithHighlighting() {
 		"cyan":        Style.AquaStrong,
 		"magenta":     Style.PurpleMuted,
 		"brightblack": Style.Gray,
+		"orange":      Style.OrangeMuted,
 	}
 	topleft := image.Pt(0, 0) //top left of the line
 	for _, line := range te.text {
-		lineusage := make([]bool, len(line))
-		use := func(start, end int) {
+		lineusage := make([]string, len(line))
+		use := func(start, end int, col string) {
 			for i := max(0, start); i < min(len(lineusage), end); i++ {
-				lineusage[i] = true
+				lineusage[i] = col
 			}
 		}
 		already_used := func(start, end int) bool {
 			for i := max(0, start); i < min(len(lineusage), end); i++ {
-				if lineusage[i] {
+				if lineusage[i] != "" {
 					return true
 				}
 			}
 			return false
 		}
-		print_usage := func() {
-			s := ""
-			for _, u := range lineusage {
-				if u {
-					s += "1"
-				} else {
-					s += "0"
-				}
-			}
-			fmt.Println(s)
-		}
-		//draw line in fgcolor as the back, handles any parts that aren't a special color
-		text.Draw(te.text_tex, line, CodeFontFace, topleft.X, text_edit_top_padding+CodeFontPeriodFromTop+topleft.Y, Style.FGColorMuted)
 		//for each highlighter regex, draw all that it can
 		if te.highlighter.expressions != nil && len(te.highlighter.expressions) > 0 {
 
 			for i := len(te.highlighter.expressions) - 1; i >= 0; i-- {
 				exp := te.highlighter.expressions[i]
-				//for _, exp := range te.highlighter.expressions {
-				fg_col, col_exists := colors[exp.fg_col]
-				if !col_exists {
-					fg_col = colornames.Greenyellow
-				}
 
 				indices := exp.reg.FindAllStringIndex(line, -1)
 				for _, startnend := range indices {
 					start := startnend[0]
 					end := startnend[len(startnend)-1]
 					if !already_used(start, end) {
-						fmt.Println("didnt overlaped")
-
-						advance := font.MeasureString(CodeFontFace, line[:start]).Round()
-						text.Draw(te.text_tex, line[start:end], CodeFontFace, topleft.X+advance, text_edit_top_padding+CodeFontPeriodFromTop+topleft.Y, fg_col)
-						use(start, end)
+						use(start, end, exp.fg_col)
 					}
 
-					//before_width := font.BoundString(CodeFontFace, line[start:end]).Dx()
 				}
 			}
-			print_usage()
-			fmt.Println(line)
+			rs := []rune(line)
+
+			for i, r := range rs {
+				fg_col, col_exists := colors[lineusage[i]]
+				if !col_exists {
+					fg_col = Style.FGColorMuted
+				}
+
+				advance := font.MeasureString(CodeFontFace, string(rs[:i])).Round()
+				text.Draw(te.text_tex, string(r), CodeFontFace, topleft.X+advance, text_edit_top_padding+CodeFontPeriodFromTop+topleft.Y, fg_col)
+			}
 		}
 		topleft.Y += CodeFontSize
 	}
@@ -206,14 +194,13 @@ func (te *TextEditor) EnterText(s string) {
 func (te *TextEditor) Backspace() {
 	te.Interacted()
 
+	//already at top left, can't do anything
 	if te.cursor.col == 0 && te.cursor.row == 0 {
 		return
 	}
 	if te.cursor.col == 0 {
 		var prev_line_len = 0
-		if te.cursor.row >= 1 {
-			prev_line_len = len(te.text[te.cursor.row-1])
-		}
+
 		//combine this line with previous
 		this_line := te.text[te.cursor.row]
 		up_to := te.text[0:te.cursor.row]
@@ -298,6 +285,7 @@ func (te *TextEditor) CursorUp() {
 }
 func (te *TextEditor) Newline() {
 	te.Interacted()
+	te.MarkRedraw()
 
 	line := te.text[te.cursor.row]
 	line_before := line[:te.cursor.col]
@@ -320,7 +308,7 @@ func (te *TextEditor) SetText(s string) {
 	te.text = strings.Split(s, "\n")
 }
 
-func (te *TextEditor) handle_shortcuts() {
+func (te *TextEditor) HandleShortcuts() {
 	local_shortcuts := map[KeyShortcut]func(){
 		{key: ebiten.KeyEnd}:               te.EndLine,
 		{key: ebiten.KeyHome}:              te.StartLine,
@@ -354,7 +342,7 @@ func (te *TextEditor) handle_shortcuts() {
 	}
 }
 func (te *TextEditor) TakeKeyboard() {
-	te.handle_shortcuts()
+	te.HandleShortcuts()
 
 	if te.ReadOnly {
 		return
@@ -376,21 +364,17 @@ func (te *TextEditor) Interacted() {
 
 func (te *TextEditor) LMouseDown(x int, y int) Widget {
 	te.focused = true
-	//local_y := y - text_edit_top_padding - te.Min.Y
 	return te
 }
 
-// LMouseUp implements Widget
 func (te *TextEditor) LMouseUp(x int, y int) Widget {
 	te.focused = true
 	return te
 }
 
-// MouseOut implements Widget
 func (*TextEditor) MouseOut() {
 }
 
-// MouseOver implements Widget
 func (te *TextEditor) MouseOver(x int, y int) Widget {
 	ebiten.SetCursorShape(ebiten.CursorShapeText)
 	return te
@@ -399,6 +383,7 @@ func (te *TextEditor) MouseOver(x int, y int) Widget {
 // SetRect implements Widget
 func (te *TextEditor) SetRect(rect image.Rectangle) {
 	te.Rectangle = rect
+	te.MarkRedraw()
 }
 
 /*

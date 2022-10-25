@@ -200,6 +200,9 @@ func main() {
 			data_pane.SetText(fmt.Sprintf("\nData:\ntime: %v\nTPS: %f\nFPS: %f\nTicks: %d\nTETick: %d", t.Format(time.Kitchen), ebiten.ActualTPS(), ebiten.ActualFPS(), ticks, te1.last_interact_time))
 		}
 	}()
+	/*
+		mutlitline
+	*/
 
 	main_view := &HorizontalSplitter{
 		split_x: 200,
